@@ -1,0 +1,16 @@
+{
+  "columns": [
+    {
+      "name": "COLUMN_0",
+      "type": "FLS_STR"
+    },
+    {
+      "name": "COLUMN_0",
+      "type": "FLS_STR"
+    },
+    {
+      "name": "COLUMN_0",
+      "type": "integer"
+    }
+  ]
+}
