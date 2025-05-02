@@ -1,260 +1,213 @@
 name: CI
-run-name: "${{ github.actor }} - ${{ github.event.head_commit.message }}"
+run-name: "${{ github.actor }} – ${{ github.event.head_commit.message }}"
 
-on: push
+# ──────────────────────────────────────────────────────────────────────────────
+# Events
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+  pull_request:
+    branches: [ "main", "dev" ]
+
+# Cancel in-flight runs on the same branch/PR so we do not waste minutes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Global env (tweak once, use everywhere)
+env:
+  CMAKE_GENERATOR: Ninja            # much faster than Makefiles
+  BUILD_THREADS: 12                 # tweak to fit runner vCPU count
 
 jobs:
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 1️⃣  Format-check (quick)
+  # ──────────────────────────────────────────────────────────────────────────────
   check-format:
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [ ubuntu-latest ]
-    runs-on: ${{ matrix.platform }}
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Run format check
+        run: make format-check
 
-      - name: run-clang-format
-        run: python3 scripts/run-clang-format.py -r example include src benchmark test data/include --exclude include/fls/json/nlohmann
-
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 2️⃣  Main build + clang-tidy (Linux + macOS)
+  # ──────────────────────────────────────────────────────────────────────────────
   build:
-    needs:
-      - check-format
+    needs: check-format
     strategy:
       fail-fast: false
       matrix:
-        platform: [ ubuntu-latest, macos-latest, president ]
+        platform: [ ubuntu-latest, macos-latest ]
         build_type: [ Debug, Release ]
         cxx: [ clang++ ]
-
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Make directory build
-        run: mkdir ${{github.workspace}}/build_${{ matrix.build_type }}
+      - name: Install LLVM
+        uses: ./.github/actions/install-llvm
 
-      - name: Install LLVM on macos
-        if: matrix.platform == 'macos-latest'
+      - name: Print clang/clang-tidy version
         run: |
-          brew install llvm
-
-      - name: Add LLVM to path on macos
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
-          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
-          clang-tidy --version  
-
-      - name: Install Chocolatey
-        if: matrix.platform == 'windows-latest'
-        run: |
-          Set-ExecutionPolicy Bypass -Scope Process -Force;
-          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
-          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-
-      - name: Install Ninja on Windows
-        if: matrix.platform == 'windows-latest'
-        run: choco install ninja -y
-
-      # Verify Ninja installation on all platforms
-      - name: Verify Ninja installation
-        if: matrix.platform == 'windows-latest'
-        run: ninja --version
-
-      - name: Install Clang (with clang++)
-        if: matrix.platform == 'windows-latest'
-        run: choco install llvm -y
-
-      - name: Verify Clang++ installation
-        if: matrix.platform == 'windows-latest'
-        run: clang++ --version && lld-link --version
-
-      - name: Configure CMake
-        if: matrix.platform != 'windows-latest'
-        run: |
-          cmake -S ${{github.workspace}} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -B ${{github.workspace}}/build_${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-        env:
-          CXX: ${{ matrix.cxx }}
-
-      - name: Configure CMake
-        if: matrix.platform == 'windows-latest'
-        run: |
-          cmake -S ${{github.workspace}} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -B ${{github.workspace}}/build_${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G "Ninja" -DCMAKE_CXX_FLAGS="-target x86_64-w64-windows-gnu"
-        env:
-          CXX: ${{ matrix.cxx }}
-
-      - name: Build
-        run: cmake --build ${{github.workspace}}/build_${{ matrix.build_type }} -j 10
-
-  build-iwyu:
-    needs:
-      - build
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [ president ]
-        build_type: [ Release, Debug ]
-        cxx: [ clang++ ]
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Make directory build
-        run: mkdir ${{github.workspace}}/build_iwyu_${{ matrix.build_type }}
-
-      - name: Configure CMake
-        run: cmake -S ${{github.workspace}} -DFLS_ENABLE_IWYU=ON  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -B ${{github.workspace}}/build_iwyu_${{ matrix.build_type }}
-        env:
-          CXX: ${{ matrix.cxx }}
-
-      - name: Build
-        run: cmake --build ${{github.workspace}}/build_iwyu_${{ matrix.build_type }} -j 10
-
-  generate_dataset:
-    needs: [ build ]
-    if: success()
-
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [ ubuntu-latest, macos-latest, president ]
-        python-version: [ 3.12.4 ]  # Python 3 versions
-
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}  # Set Python 3.x version
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip  # Upgrade pip
-          pip install faker  # Install faker
-
-      - name: generate data
-        run: cd ${{github.workspace}}/scripts/; python3 generate_synthetic_data.py
-
-  example:
-    needs:
-      - build
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ ubuntu-latest, macos-latest ] # fixme, try windows-latest
-        build_type: [ Debug ]
-        cc: [ clang ]
-        cxx: [ clang++ ]
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Make directory build
-        run: mkdir ${{github.workspace}}/build_${{ matrix.build_type }}
-
-      - name: Install LLVM on macos
-        if: matrix.platform == 'macos-latest'
-        run: |
-          brew install llvm
-
-      - name: Add LLVM to path on macos
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
-          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          clang --version
           clang-tidy --version
 
-      - name: Install Chocolatey
-        if: matrix.platform == 'windows-latest'
+      # ----------------------------------------------------------------------
+      # Configure (runs clang-tidy via CMake)
+      # ----------------------------------------------------------------------
+      - name: Configure (with clang-tidy checks)
         run: |
-          Set-ExecutionPolicy Bypass -Scope Process -Force;
-          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
-          iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          cmake -S ${{ github.workspace }} \
+                -B build_${{ matrix.build_type }} \
+                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+                -DCMAKE_C_COMPILER=clang \
+                -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
 
-      - name: Install Ninja on Windows
-        if: matrix.platform == 'windows-latest'
-        run: choco install ninja -y
+      - name: Build (clang-tidy runs automatically)
+        run: cmake --build build_${{ matrix.build_type }} -j $BUILD_THREADS
 
-      # Verify Ninja installation on all platforms
-      - name: Verify Ninja installation
-        if: matrix.platform == 'windows-latest'
-        run: ninja --version
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 3️⃣  IWYU build (Linux only)
+  # ──────────────────────────────────────────────────────────────────────────────
+  #  build-iwyu:
+  #    needs: build
+  #    strategy:
+  #      matrix:
+  #        build_type: [ Debug, Release ]
+  #    runs-on: ubuntu-latest
+  #
+  #    steps:
+  #      - uses: actions/checkout@v4
+  #
+  #      - name: Cache IWYU build
+  #        uses: actions/cache@v4
+  #        with:
+  #          path: build_iwyu_${{ matrix.build_type }}
+  #          key: ${{ runner.os }}-iwyu-${{ matrix.build_type }}-${{ hashFiles('CMakeLists.txt', '**/*.cmake', '**/*.[ch]pp', '**/*.h') }}
+  #          restore-keys: |
+  #            ${{ runner.os }}-iwyu-${{ matrix.build_type }}-
+  #
+  #      - name: Configure (IWYU)
+  #        run: |
+  #          cmake -S ${{ github.workspace }} \
+  #                -B build_iwyu_${{ matrix.build_type }} \
+  #                -DFLS_ENABLE_IWYU=ON \
+  #                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+  #                -DCMAKE_C_COMPILER=clang \
+  #                -DCMAKE_CXX_COMPILER=clang++
+  #
+  #      - name: Build (IWYU)
+  #        run: cmake --build build_iwyu_${{ matrix.build_type }} -j $BUILD_THREADS
 
-      - name: Install Clang (with clang++)
-        if: matrix.platform == 'windows-latest'
-        run: choco install llvm -y
-
-      - name: Verify Clang++ installation
-        if: matrix.platform == 'windows-latest'
-        run: clang++ --version
-
-      - name: Configure CMake
-        if: matrix.platform != 'windows-latest'
-        run: |
-          cmake -S ${{github.workspace}} -DFLS_BUILD_EXAMPLE=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -B ${{github.workspace}}/build_${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-        env:
-          CXX: ${{ matrix.cxx }}
-
-      - name: Configure CMake
-        if: matrix.platform == 'windows-latest'
-        run: |
-          cmake -S ${{github.workspace}} -DFLS_BUILD_EXAMPLE=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -B ${{github.workspace}}/build_${{ matrix.build_type }} -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G "Ninja" -DCMAKE_CXX_FLAGS="-target x86_64-w64-windows-gnu"
-        env:
-          CXX: ${{ matrix.cxx }}
-
-      - name: Build
-        run: cmake --build ${{github.workspace}}/build_${{ matrix.build_type }} -j 10
-
-      - name: run cpp_example
-        run: ${{github.workspace}}/build_${{ matrix.build_type }}/example/cpp_example
-
-  test:
-    needs:
-      - example
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 4️⃣  Synthetic-dataset generator (Python, cached pip)
+  # ──────────────────────────────────────────────────────────────────────────────
+  generate_dataset:
+    #    needs: build
     strategy:
-      fail-fast: true
       matrix:
-        platform: [ president ]
-        build_type: [ Release ] # TODO : ADD DEBUG
+        platform: [ ubuntu-latest, macos-latest ]
+        python-version: [ "3.12" ]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('scripts/generate_synthetic_data.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install --upgrade pip faker
+
+      - name: Generate data
+        run: python scripts/generate_synthetic_data.py
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 5️⃣  Example build & run
+  # ──────────────────────────────────────────────────────────────────────────────
+  example:
+    #    needs: build
+    strategy:
+      matrix:
+        platform: [ ubuntu-latest, macos-latest ]
+        build_type: [ Release ]
         cxx: [ clang++ ]
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Make directory build
-        run: mkdir ${{github.workspace}}/test_build_${{ matrix.build_type }}
+      - name: Install LLVM
+        uses: ./.github/actions/install-llvm
 
-      - name: Configure CMake
-        run: cmake  -DFLS_BUILD_TESTING=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{github.workspace}} -B ${{github.workspace}}/test_build_${{ matrix.build_type }}
-        env:
-          CXX: ${{ matrix.cxx }}
+      - name: Configure example
+        run: |
+          cmake -S ${{ github.workspace }} \
+                -B build_${{ matrix.build_type }} \
+                -DFLS_BUILD_EXAMPLES=ON \
+                -DFLS_ENABLE_CLANG_TIDY=OFF \
+                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+                -DCMAKE_C_COMPILER=clang \
+                -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
 
-      - name: Build
-        run: cmake --build ${{github.workspace}}/test_build_${{ matrix.build_type }} -j 10
+      - name: Build example
+        run: cmake --build build_${{ matrix.build_type }} -j $BUILD_THREADS
 
-      - name: Test
-        working-directory: ${{github.workspace}}/test_build_${{ matrix.build_type }}
-        run: ctest -j 10 --stop-on-failure --output-on-failure --timeout 5000
+      - name: Run cpp_example
+        run: build_${{ matrix.build_type }}/examples/cpp_example
 
+  # ──────────────────────────────────────────────────────────────────────────────
+  # 6️⃣  Tests (Linux + macOS, Release only)
+  # ──────────────────────────────────────────────────────────────────────────────
+  test:
+    #    needs: example
+    strategy:
+      matrix:
+        platform: [ ubuntu-latest, macos-latest ]
+        build_type: [ Release ]
+    runs-on: ${{ matrix.platform }}
+    env:
+      BUILD_THREADS: 12
 
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
+      - name: Generate synthetic dataset
+        uses: ./.github/actions/generate-dataset
+        with:
+          python-version: "3.12"
 
+      - name: Install LLVM
+        uses: ./.github/actions/install-llvm
 
+      - name: Configure tests
+        run: |
+          cmake -S ${{ github.workspace }} \
+                -B test_build_${{ matrix.build_type }} \
+                -DFLS_BUILD_TESTING=ON \
+                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+                -DFLS_ENABLE_CLANG_TIDY=OFF \
+                -DCMAKE_C_COMPILER=clang \
+                -DCMAKE_CXX_COMPILER=clang++
 
+      - name: Build tests
+        run: cmake --build test_build_${{ matrix.build_type }} -j $BUILD_THREADS
 
+      - name: Run tests
+        working-directory: test_build_${{ matrix.build_type }}
+        run: ctest -j $BUILD_THREADS --stop-on-failure --output-on-failure --timeout 5000

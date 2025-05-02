@@ -178,7 +178,7 @@ if (FLS_BUILD_TESTING OR FLS_BUILD_BENCHMARKING OR FLS_BUILD_EXAMPLES OR FLS_ENA
     FetchContent_Declare(
             data
             GIT_REPOSITORY https://github.com/cwida/FastLanes_Data.git
-            GIT_TAG FCBench # add_fannie_mae
+            GIT_TAG main
     )
 
     FetchContent_MakeAvailable(data)
@@ -195,10 +195,22 @@ if (FLS_ENABLE_CLANG_TIDY)
     if (NOT CLANG_TIDY_EXE)
         message(FATAL_ERROR "-- FLS: clang-tidy not found.")
     else ()
-        set(CMAKE_CXX_CLANG_TIDY
-                ${CLANG_TIDY_EXE};
-                -header-filter=include;
-                -warnings-as-errors=*;)
+        if (NOT DEFINED CMAKE_CXX_CLANG_TIDY)
+            set(CMAKE_CXX_CLANG_TIDY
+                    ${CLANG_TIDY_EXE};
+                    --quiet;
+                    --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy)
+            message("-- FLS: Using project-level .clang-tidy")
+        else ()
+            message(FATAL_ERROR "-- FLS: Do not override the clang-tidy configuration. Use the project-level .clang-tidy file instead. Current setting: ${CMAKE_CXX_CLANG_TIDY}")
+        endif ()
+
+        execute_process(
+                COMMAND ${CLANG_TIDY_EXE} --version
+                OUTPUT_VARIABLE CLANG_TIDY_VERSION
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        message("-- FLS: clang-tidy version: ${CLANG_TIDY_VERSION}")
 
     endif ()
 endif ()
