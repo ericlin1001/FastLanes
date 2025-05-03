@@ -53,12 +53,27 @@ void File::ReadRange(Buf& buf, const n_t offset, const n_t size) {
 	m_if_stream->read(reinterpret_cast<char*>(buf.mutable_data()), static_cast<std::streamsize>(size));
 }
 
+n_t File::Size() const {
+	if (!exists(m_path)) {
+		throw std::runtime_error("File does not exist");
+	}
+	return static_cast<n_t>(std::filesystem::file_size(m_path));
+}
+
 void File::Append(const Buf& buf) {
 	if (m_of_stream == nullptr) {
 		// Open file in append mode
 		m_of_stream = std::make_unique<std::ofstream>(m_path, std::ios::binary | std::ios::app);
 	}
 	m_of_stream->write(reinterpret_cast<char*>(buf.data()), static_cast<int64_t>(buf.Size()));
+}
+
+void File::Append(const char* pointer, n_t size) {
+	if (m_of_stream == nullptr) {
+		// Open file in append mode
+		m_of_stream = std::make_unique<std::ofstream>(m_path, std::ios::binary | std::ios::app);
+	}
+	m_of_stream->write(pointer, static_cast<int64_t>(size));
 }
 
 /*--------------------------------------------------------------------------------------------------------------------*\
@@ -73,6 +88,14 @@ string File::read(const path& file_path) {
 
 void File::write(const path& dir_path, const string& dump) {
 	auto file = FileSystem::open_w(dir_path);
+
+	file << dump;
+
+	FileSystem::close(file);
+}
+
+void File::append(const path& dir_path, const string& dump) {
+	auto file = FileSystem::opend_app(dir_path);
 
 	file << dump;
 

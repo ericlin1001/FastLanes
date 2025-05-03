@@ -1,8 +1,13 @@
 #include "fls/reader/table_reader.hpp"
+#include "fls/csv/csv.hpp"
+#include "fls/encoder/materializer.hpp"
+#include "fls/file/file_footer.hpp"
+#include "fls/file/file_header.hpp"
 #include "fls/footer/table_descriptor.hpp"
+#include "fls/info.hpp"
+#include "fls/io/file.hpp"
+#include "fls/io/io.hpp"
 #include "fls/reader/rowgroup_reader.hpp"
-#include <fls/csv/csv.hpp>
-#include <fls/encoder/materializer.hpp>
 
 namespace fastlanes {
 up<RowgroupReader> TableReader::get_rowgroup_reader(const n_t rowgroup_idx) const {
@@ -32,8 +37,21 @@ void TableReader::to_csv(const path& file_path) const {
 TableReader::TableReader(const path& dir_path, Connection& connection)
     : m_connection(connection)
     , m_dir_path(dir_path) {
-	// read get_descriptor
-	m_table_descriptor = make_table_descriptor(dir_path / TABLE_DESCRIPTOR_FILE_NAME);
+
+	const auto fastlanes_file_path = dir_path / FASTLANES_FILE_NAME;
+
+	FileFooter file_footer {};
+	FileHeader file_header {};
+
+	FileHeader::Load(file_header, fastlanes_file_path);
+	FileFooter::Load(file_footer, fastlanes_file_path);
+
+	if (file_header.settings.inline_footer) {
+		m_table_descriptor = make_table_descriptor(
+		    fastlanes_file_path, file_footer.table_descriptor_offset, file_footer.table_descriptor_size);
+	} else {
+		m_table_descriptor = make_table_descriptor(dir_path / TABLE_DESCRIPTOR_FILE_NAME);
+	}
 }
 up<RowgroupReader> TableReader::operator[](const n_t rowgroup_idx) const {
 	auto rowgroup_reader =

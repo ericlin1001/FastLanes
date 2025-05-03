@@ -1,5 +1,6 @@
 add_library(fls_common
         OBJECT
+        alias.cpp
         assert.cpp
         bimap.cpp
         bimap_frequency.cpp
@@ -9,6 +10,7 @@ add_library(fls_common
         decimal.cpp
         double.cpp
         exception.cpp
+        status.cpp
         string.cpp
 )
 

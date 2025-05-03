@@ -4,10 +4,13 @@
 #include "fls/expression/decoding_operator.hpp"
 #include "fls/expression/encoding_operator.hpp"
 #include "fls/expression/predicate_operator.hpp"
+#include "fls/file/file_footer.hpp"
+#include "fls/file/file_header.hpp"
 #include "fls/footer/rowgroup_descriptor.hpp" // for RowgroupDescriptor
-#include "fls/io/file.hpp"                    // for File
-#include "fls/io/io.hpp"                      // for IO, io
-#include "fls/json/fls_json.hpp"              // for JSON
+#include "fls/info.hpp"
+#include "fls/io/file.hpp"       // for File
+#include "fls/io/io.hpp"         // for IO, io
+#include "fls/json/fls_json.hpp" // for JSON
 #include "fls/reader/csv_reader.hpp"
 #include "fls/reader/json_reader.hpp"
 #include "fls/reader/segment.hpp"
@@ -95,14 +98,40 @@ Connection& Connection::to_fls(const path& dir_path) {
 		spell();
 	}
 
-	// encode
-	Buf buf; // TODO[memory pool]
-	Encoder::encode(*this, buf, dir_path);
+	FileHeader::Write(*this, dir_path);
 
-	// write table descriptor
-	JSON::write<TableDescriptor>(dir_path, *m_table_descriptor);
+	// encode
+	Encoder::encode(*this, dir_path);
+
+	// Write table descriptor
+	const n_t        table_descriptor_size = JSON::write(*this, dir_path, *m_table_descriptor);
+	const FileFooter file_footer {
+	    m_table_descriptor->m_table_binary_size, table_descriptor_size, Info::get_magic_bytes()};
+
+	FileFooter::Write(*this, dir_path, file_footer);
 
 	return *this;
+}
+
+Status Connection::verify_fls(const path& file_path) {
+	FileHeader file_header {};
+	FileHeader::Load(file_header, file_path);
+
+	if (file_header.magic_bytes != Info::get_magic_bytes()) {
+		return Status::Error(Status::ErrorCode::ERR_5_INVALID_MAGIC_BYTES);
+	}
+	if (file_header.version != Info::get_version_bytes()) {
+		return Status::Error(Status::ErrorCode::ERR_6_INVALID_VERSION_BYTES);
+	}
+
+	FileFooter file_footer {};
+	FileFooter::Load(file_footer, file_path);
+
+	if (file_footer.magic_bytes != Info::get_magic_bytes()) {
+		return Status::Error(Status::ErrorCode::ERR_5_INVALID_MAGIC_BYTES);
+	}
+
+	return Status::Ok();
 }
 
 Connection& Connection::reset() {
@@ -176,6 +205,16 @@ Table& Connection::get_table() const {
 	return *m_table;
 }
 
+fls_bool Connection::is_footer_inlined() const {
+	return m_config->inline_footer;
+}
+
+Connection& Connection::inline_footer() {
+	m_config->inline_footer = FLS_TRUE;
+
+	return *this;
+}
+
 /*--------------------------------------------------------------------------------------------------------------------*\
  * Config
 \*--------------------------------------------------------------------------------------------------------------------*/
@@ -184,6 +223,8 @@ Config::Config()
     : is_forced_schema_pool(false)
     , is_forced_schema(false)
     , sample_size(CFG::SAMPLER::SAMPLE_SIZE)
-    , n_vector_per_rowgroup(CFG::RowGroup::N_VECTORS_PER_ROWGROUP) {
+    , n_vector_per_rowgroup(CFG::RowGroup::N_VECTORS_PER_ROWGROUP)
+    , inline_footer(CFG::Footer::IS_INLINED) {
 }
+
 } // namespace fastlanes

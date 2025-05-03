@@ -21,6 +21,15 @@ void IO::append(io& io, const Buf& buf) {
 	      io);
 }
 
+void IO::append(io& io, const char* pointer, n_t size) {
+	// write the buffer
+	visit(overloaded {
+	          [&](up<File>& file) { file->Append(pointer, size); },
+	          [](auto&) { FLS_UNREACHABLE() },
+	      },
+	      io);
+}
+
 void IO::read(const io& io, Buf& buf) {
 	visit(overloaded {
 	          [&](const up<File>& file) { file->Read(buf); },
@@ -36,10 +45,11 @@ void IO::range_read(const io& io, Buf& buf, const n_t offset, const n_t size) {
 	      io);
 }
 
-bsz_t IO::get_size(const io& io) {
-	bsz_t size = 0;
+n_t IO::get_size(const io& io) {
+	n_t size = 0;
 	visit(overloaded {
 	          [&](const up<ExternalMemory>& external_memory) { size = external_memory->GetSpan().size(); },
+	          [&](const up<File>& file) { size = file->Size(); },
 	          [](auto&) { FLS_UNREACHABLE() },
 	      },
 	      io);
