@@ -30,11 +30,14 @@ include(CTest)
 if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     message(FATAL_ERROR "Only Clang is supported!")
 endif ()
-
 if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13)
     message(FATAL_ERROR "Only Clang >= 13 is supported!")
 endif ()
 
+# Disallow configuring in the source tree
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "-- FLS : Please run CMake in a separate build directory!")
+endif ()
 # Flags : --------------------------------------------------------------------------------------------------------------
 message("---------------------------------------------------------------------------------------------------------")
 message("-- FLS: detecting flags.")
@@ -330,3 +333,12 @@ if (EXISTS "${CMAKE_SOURCE_DIR}/playground/CMakeLists.txt")
     message("- FLS: Adding Playground ")
     add_subdirectory(playground)
 endif ()
+# Python : -------------------------------------------------------------------------------------------------------------
+if (FLS_BUILD_PYTHON)
+    message("-------------------------------------------------------------")
+    message("- FLS: Building FastLanes Python Extension")
+
+    add_subdirectory(python)   # your module’s CMakeLists.txt
+endif ()
+
+

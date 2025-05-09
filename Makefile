@@ -1,79 +1,167 @@
-# ---------------------------------------------------------------------------
-# Virtual-env configuration (cross-platform)
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────
+# Settings
+# ─────────────────────────────────────────────────────────────
 VENV := .venv
 
+# pick the right venv‐paths on Windows vs. Unix
 ifeq ($(OS),Windows_NT)
-  PYTHON := $(VENV)/Scripts/python.exe
+  PYTHON   := $(VENV)/Scripts/python.exe
+  PIP      := $(VENV)/Scripts/pip.exe
+  ACTIVATE := $(VENV)/Scripts/activate
 else
-  PYTHON := $(VENV)/bin/python3
+  PYTHON   := $(VENV)/bin/python3
+  PIP      := $(VENV)/bin/pip
+  ACTIVATE := $(VENV)/bin/activate
 endif
 
-PIP := $(PYTHON) -m pip   # always use python -m pip
+# Clean artefacts that skbuild-core creates
+CLEAN_SKBUILD := rm -rf skbuild-editable dist
 
-# Coloured echo helper
+# ─────────────────────────────────────────────────────────────
+# Helper for green echo
+# ─────────────────────────────────────────────────────────────
 define echo_green
 	@echo "\033[0;32m$(1)\033[0m"
 endef
 
-# ---------------------------------------------------------------------------
-# Virtual-env bootstrap (creates a marker file .created)
-# ---------------------------------------------------------------------------
-$(VENV)/.created:
-	$(call echo_green, "Setting up virtual environment...")
+# ─────────────────────────────────────────────────────────────
+# Virtual-env bootstrap
+# ─────────────────────────────────────────────────────────────
+$(ACTIVATE):
+	$(call echo_green, "🐍 Setting up virtual environment…")
 	python3 -m venv $(VENV)
+	$(call echo_green, "📦 Installing base Python dependencies…")
+	# use `python -m pip` so that pip can self-upgrade on Windows
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install clang-format Faker     # global dev tools
 
-	$(call echo_green, "Installing dependencies...")
-	$(PIP) install --upgrade pip
-	$(PIP) install clang-format faker   # add other deps as needed
-	@touch $@
-
-# ---------------------------------------------------------------------------
-# Formatting helpers (via pre-built docker image)
-# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────
+# Clang-format helpers
+# ─────────────────────────────────────────────────────────────
 IMAGE := ghcr.io/azimafroozeh/clang-format-python/clang-format-python:14
-SRC_DIRS := examples include src benchmark test data/include
-EXCLUDE  := --exclude include/fls/json/nlohmann
 
 format:
-	$(call echo_green, "Formatting sources…")
-	docker run --rm -v "$$(pwd)":/app -w /app $(IMAGE) bash -c \
-	    "python3 scripts/run-clang-format.py -r $(SRC_DIRS) -i $(EXCLUDE)"
+	$(call echo_green,"Formatting…")
+	docker run --rm -v "$$(pwd)":/app -w /app $(IMAGE) \
+	    bash -c "python3 scripts/run-clang-format.py -r examples include src benchmark python test data/include -i --exclude include/fls/json/nlohmann"
+
+clang-format:
+	$(call echo_green, "Running clang-format with Docker…")
+	docker run --rm -v "$$(pwd)":/app -w /app ubuntu:22.04 \
+	    bash -c "apt update && apt install -y python3 clang-format-14 && ln -s /usr/bin/clang-format-14 /usr/bin/clang-format && \
+	             python3 scripts/run-clang-format.py -r examples include src benchmark test data/include python -i --exclude include/fls/json/nlohmann"
 
 format-check:
 	$(call echo_green, "Checking formatting…")
-	docker run --rm -v "$$(pwd)":/app -w /app $(IMAGE) bash -c \
-	    "python3 scripts/run-clang-format.py -r $(SRC_DIRS) $(EXCLUDE)"
+	docker run --rm -v "$$(pwd)":/app -w /app ubuntu:22.04 \
+	    bash -c "apt update && apt install -y clang-format-14 python3 && ln -s /usr/bin/clang-format-14 /usr/bin/clang-format && \
+	             python3 scripts/run-clang-format.py -r examples include src benchmark test data/include python --exclude include/fls/json/nlohmann"
 
-# Optional: run clang-format inside a vanilla Ubuntu container
-clang-format:
-	$(call echo_green, "Running clang-format in vanilla Ubuntu container…")
-	docker run --rm -v "$$(pwd)":/app -w /app ubuntu:22.04 bash -c '\
-	  apt update && \
-	  apt install -y python3 clang-format-14 && \
-	  ln -s /usr/bin/clang-format-14 /usr/bin/clang-format && \
-	  python3 scripts/run-clang-format.py -r $(SRC_DIRS) -i $(EXCLUDE)'
+# ─────────────────────────────────────────────────────────────
+# Data & history helpers
+# ─────────────────────────────────────────────────────────────
+generate_synthetic_data: $(ACTIVATE)
+	$(call echo_green, "🐣 Generating synthetic data…")
+	# ensure Faker is installed
+	$(PIP) install Faker
+	cd scripts && PYTHONPATH=$(PWD) ../$(PYTHON) generate_synthetic_data.py \
+		--num-records 5000 \
+		--output ../data/synthetic_users.csv
 
-# ---------------------------------------------------------------------------
-# Synthetic data & helper scripts
-# ---------------------------------------------------------------------------
-generate_synthetic_data: $(VENV)/.created
-	$(call echo_green, "Generating synthetic data…")
-	cd scripts && PYTHONPATH=$(PWD) ../$(PYTHON) generate_synthetic_data.py
-
-check_fastlanes_result_history: $(VENV)/.created
-	$(call echo_green, "Checking FastLanes result history…")
+check_fastlanes_result_history: $(ACTIVATE)
+	$(call echo_green, "Checking CSV history…")
 	cd scripts && ../$(PYTHON) check_fastlanes_result_history.py
 
-# ---------------------------------------------------------------------------
-# Misc utilities
-# ---------------------------------------------------------------------------
 time_ctest:
 	$(call echo_green, "Running ctest with timing…")
 	cd cmake-build-release && time ctest --output-on-failure
 
-# ---------------------------------------------------------------------------
-# Declare phony targets
-# ---------------------------------------------------------------------------
-.PHONY: format format-check clang-format \
-        generate_synthetic_data check_fastlanes_result_history time_ctest
+# ─────────────────────────────────────────────────────────────
+# Python bindings
+# ─────────────────────────────────────────────────────────────
+# >>> keep *one* word per line, no trailing back-slash on the last entry <<<
+PY_DEPS = \
+  cmake>=3.22 \
+  scikit-build-core>=0.11,<0.12 \
+  pybind11>=2.12,<2.13 \
+  setuptools_scm[toml]>=7,<8 \
+  pytest \
+  ninja>=1.5 \
+  pyproject_metadata \
+  Faker
+
+TEST_DIR := python/tests
+
+# Helper: quote each dep, skip empties
+quote_deps = $(foreach dep,$(PY_DEPS),"$(dep)")
+
+.PHONY: check_python_deps rebuild_python_debug rebuild_python_release \
+        clean_python run_example_python test_python \
+        build_wheel_release upload_pypi upload_testpypi build_sdist
+
+check_python_deps: $(ACTIVATE)
+	$(call echo_green, "📦 Ensuring Python build deps…")
+	$(PIP) install --upgrade $(call quote_deps)
+
+rebuild_python_debug: $(ACTIVATE)
+	@echo "🔄 Rebuilding PyFastLanes bindings (Debug)…"
+	$(CLEAN_SKBUILD)
+	CMAKE_BUILD_TYPE=Debug \
+	CMAKE_BUILD_PARALLEL_LEVEL=12 \
+	CMAKE_VERBOSE_MAKEFILE=ON \
+	PIP_VERBOSE=1 \
+	$(PYTHON) -m pip install -e . --no-build-isolation -v
+
+rebuild_python_release: $(ACTIVATE)
+	@echo "🚀 Rebuilding PyFastLanes bindings (Release)…"
+	$(CLEAN_SKBUILD)
+	CMAKE_BUILD_TYPE=Release \
+	CMAKE_BUILD_PARALLEL_LEVEL=12 \
+	CMAKE_VERBOSE_MAKEFILE=ON \
+	PIP_VERBOSE=1 \
+	$(PYTHON) -m pip install -e . --no-build-isolation -v
+
+clean_python:
+	$(call echo_green,"🧹 Cleaning Python artefacts…")
+	rm -rf skbuild-editable dist
+	find python/pyfastlanes -name '_pyfastlanes*.so' -delete
+	find . -name '__pycache__'   -exec rm -rf {} +
+	find . -name '*.pyc'         -delete
+
+run_example_python: $(ACTIVATE)
+	$(call echo_green,"🚀 Running example…")
+	$(PYTHON) examples/python_example.py
+
+test_python: rebuild_python_release
+	$(call echo_green, "🧪 Running unit tests…")
+	PYTHONPATH=$(PWD)/python $(PYTHON) -m pytest -q $(TEST_DIR)
+
+# ─────────────────────────────────────────────────────────────
+# Wheel build & upload
+# ─────────────────────────────────────────────────────────────
+build_wheel_release: $(ACTIVATE)
+	@echo "📦 Building PyFastLanes wheel (Release)…"
+	$(PIP) install --upgrade $(call quote_deps)
+	$(CLEAN_SKBUILD)
+	CMAKE_BUILD_TYPE=Release \
+	CMAKE_BUILD_PARALLEL_LEVEL=12 \
+	CMAKE_VERBOSE_MAKEFILE=ON \
+	PIP_VERBOSE=1 \
+	$(PYTHON) -m build --wheel --no-isolation --outdir dist
+
+upload_pypi: $(ACTIVATE)
+	$(call echo_green, "🚀 Uploading to PyPI…")
+	$(PYTHON) -m twine upload dist/*
+
+upload_testpypi: $(ACTIVATE)
+	$(call echo_green, "🧪 Uploading to TestPyPI…")
+	$(PYTHON) -m twine upload --repository testpypi dist/*
+
+# ─────────────────────────────────────────────────────────────
+# Build just the source distribution
+# ─────────────────────────────────────────────────────────────
+build_sdist: $(ACTIVATE)
+	$(call echo_green, "📦 Building source distribution…")
+	$(PIP) install --upgrade setuptools wheel
+	$(PIP) install --upgrade $(call quote_deps)
+	$(PYTHON) -m build --sdist --no-isolation --outdir dist
