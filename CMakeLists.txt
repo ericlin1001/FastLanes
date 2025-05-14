@@ -10,6 +10,18 @@ if (CLANG_CXX AND CLANG_C)
     set(CMAKE_CXX_COMPILER "${CLANG_CXX}" CACHE STRING "C++ Compiler" FORCE)
 endif ()
 
+
+#  ---------------------------------------------------------------------------------------------------------------------
+# Prevent Windows <minwindef.h> from defining min/max macros,
+# which collide with std::numeric_limits<…>::max() and
+# Flatbuffers’ own max() methods.
+#
+# Defining NOMINMAX here ensures that any inclusion of
+# windows.h or other Win32 headers won’t inject those macros.
+# ----------------------------------------------------------------------------------------------------------------------
+add_compile_definitions(NOMINMAX)
+
+
 # Project : ------------------------------------------------------------------------------------------------------------
 project(FastLanes)
 
@@ -158,17 +170,15 @@ if (true)
     message("-- FLS: Building FastLanes Lib.")
     # Include : --------------------------------------------------------------------------------------------------------
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party)
+
+    # External Include: -----------------------------------------------------------------------------------------------------
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/flatbuffers)
 
     # Primitives: ------------------------------------------------------------------------------------------------------
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/primitives)
 
     # Source: ----------------------------------------------------------------------------------------------------------
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-    # Third_party: -----------------------------------------------------------------------------------------------------
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party)
-
 
     install(
             EXPORT FLSTargets

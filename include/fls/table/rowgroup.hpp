@@ -16,7 +16,7 @@ namespace fastlanes {
 class Vector;
 class LogicalExpr;
 class column;
-class RowgroupDescriptor;
+struct RowgroupDescriptorT;
 class Connection;
 /*--------------------------------------------------------------------------------------------------------------------*/
 using null_map_arr = vector<uint8_t>;
@@ -198,7 +198,7 @@ public:
 	friend class column;
 
 public:
-	explicit Rowgroup(const RowgroupDescriptor& rowgroup_footer, const Connection& connection);
+	explicit Rowgroup(const RowgroupDescriptorT& rowgroup_footer, const Connection& connection);
 
 	Rowgroup(const Rowgroup&)             = delete;
 	Rowgroup& operator=(const Rowgroup&)  = delete;
@@ -240,11 +240,11 @@ public:
 	void FillMissingValues(n_t how_many_to_fill);
 
 public: /* Members */
-	RowgroupDescriptor m_descriptor;
-	n_t                n_tup;
-	rowgroup_pt        internal_rowgroup;
-	const Connection&  m_connection;
-	const n_t          capacity;
+	RowgroupDescriptorT m_descriptor;
+	n_t                 n_tup;
+	rowgroup_pt         internal_rowgroup;
+	const Connection&   m_connection;
+	const n_t           capacity;
 };
 
 std::ostream& operator<<(std::ostream& output, const Rowgroup& mini_arrow);
