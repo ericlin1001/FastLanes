@@ -14,7 +14,7 @@ class Table;
 /*--------------------------------------------------------------------------------------------------------------------*/
 class TableReader {
 public:
-	explicit TableReader(const path& dir_path, Connection& fls);
+	explicit TableReader(const path& file_path, Connection& fls);
 
 public:
 	up<RowgroupReader> operator[](n_t rowgroup_idx) const;
@@ -31,7 +31,7 @@ public:
 private:
 	up<TableDescriptorT> m_table_descriptor;
 	Connection&          m_connection;
-	const path&          m_dir_path;
+	const path           m_file_path;
 };
 
 } // namespace fastlanes
