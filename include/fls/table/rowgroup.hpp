@@ -90,7 +90,7 @@ public:
 	}
 	[[nodiscard]] n_t TotalSize() const;
 	const uint8_t*    NullMap() const;
-	const n_t         GetNTuples() const;
+	[[nodiscard]] n_t GetNTuples() const;
 
 private:
 	const PT*       m_data;
@@ -146,7 +146,7 @@ public:
 	[[nodiscard]] uint8_t**     FsstString() const;
 	[[nodiscard]] len_t*        FSSTLength() const;
 	[[nodiscard]] fls_string_t* String() const;
-	const n_t                   GetNTuples() const;
+	[[nodiscard]] n_t           GetNTuples() const;
 
 public:
 	uint8_t**       string_p;
