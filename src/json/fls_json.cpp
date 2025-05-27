@@ -229,6 +229,12 @@ DataType TypeLookUp(const std::string& str) {
 	    {"varchar(950)", DataType::FLS_STR},
 	    {"varchar(96)", DataType::FLS_STR},
 	    {"varchar(99)", DataType::FLS_STR},
+
+	    // NextiaJD
+	    {"TIMESTAMP", DataType::FLS_STR},
+	    {"BOOLEAN", DataType::FLS_STR},
+	    {"DATE", DataType::FLS_STR},
+
 	};
 
 	const auto it = TABLE.find(str);
