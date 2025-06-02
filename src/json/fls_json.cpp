@@ -235,6 +235,9 @@ DataType TypeLookUp(const std::string& str) {
 	    {"BOOLEAN", DataType::FLS_STR},
 	    {"DATE", DataType::FLS_STR},
 
+	    // TPCH
+	    {"DECIMAL(15,2)", DataType::DECIMAL},
+
 	};
 
 	const auto it = TABLE.find(str);
