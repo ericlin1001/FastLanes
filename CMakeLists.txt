@@ -39,6 +39,7 @@ include(CMakePrintHelpers)
 # https://stackoverflow.com/questions/56089330/cmake-creates-lots-of-targets-i-didnt-specify
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
+include(GNUInstallDirs)
 
 # Checks : -------------------------------------------------------------------------------------------------------
 if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
@@ -108,6 +109,8 @@ option(FLS_BUILD_BENCHMARKING "Enable Benchmark Build" OFF)
 option(FLS_BUILD_EXAMPLES "Build Examples" OFF)
 option(FLS_BUILD_GPU "Build GPU" OFF)
 option(FLS_BUILD_GTEST "Build GTEST" OFF)
+option(FLS_BUILD_SHARED_LIBS "Build FastLanes library as shared" OFF)
+option(FLS_ENABLE_INSTALL "Generate install targets for FastLanes" ON)
 option(FLS_ENABLE_CLANG_TIDY "Enable clang_tidy on all targets" OFF)
 option(FLS_ENABLE_IWYU "Enable include-what-you-use tool" OFF)
 option(FLS_ENABLE_DOC "Enable Doc build" OFF)
@@ -171,29 +174,6 @@ if (true)
 
     # Source: ----------------------------------------------------------------------------------------------------------
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-    install(
-            EXPORT FLSTargets
-            FILE FLSTargets.cmake
-            DESTINATION lib/FLS
-            NAMESPACE FLS::
-    )
-
-    export(
-            EXPORT FLSTargets
-            FILE "${CMAKE_BINARY_DIR}/FLSTargets.cmake"
-            NAMESPACE FLS::
-    )
-
-    install(
-            DIRECTORY
-            ${CMAKE_SOURCE_DIR}/include/     # your "include/fls/…" tree
-            DESTINATION
-            include                           # will land under <prefix>/include/fls/…
-            FILES_MATCHING
-            PATTERN "*.h"
-            PATTERN "*.hpp"
-    )
 
 endif ()
 

@@ -2,8 +2,8 @@
 
 [build-system]
 requires = [
-    # Backend and native‑code helpers
-    "scikit-build-core>=0.11,<0.12",
+    # Backend and native-code helpers
+    "scikit-build-core>=0.11.3,<0.12",
     "cmake>=3.22",
     "ninja; platform_system != 'Windows'",
     # Packaging extras
@@ -17,7 +17,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyfastlanes"
-version = "0.1.3.post7"
+version = "0.1.3.post9"
 description = "FastLanes File Format"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{ name = "Azim Afroozeh", email = "azim@cwi.nl" }]
@@ -30,7 +30,6 @@ write_to = "python/pyfastlanes/_version.py"
 version_scheme = "no-guess-dev"
 
 [tool.setuptools.packages.find]
-# your Python package lives under the python/ folder
 where = ["python"]
 include = ["pyfastlanes*"]
 
@@ -38,7 +37,6 @@ include = ["pyfastlanes*"]
 build-dir = "skbuild-editable"
 editable.mode = "redirect"
 
-# CMake flags used for *every* build (editable, wheel, etc.)
 cmake.args = [
     "-DFLS_BUILD_PYTHON=ON",
     "-DFLS_ENABLE_VERBOSE_OUTPUT=ON"
@@ -46,25 +44,17 @@ cmake.args = [
 
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 
-# ⚡️  Skip heavyweight or irrelevant paths when creating the sdist
-sdist.exclude = [
-    # CMake & scikit‑build output
-    "cmake-build-*",
-    "build",
-    "dist",
-    "skbuild-editable",
-    "examples",
-    "benchmark",
-    "data",
-    "scripts/generated_*",
-    "rust",
-    "mk",
-    # Local tooling / IDE
-    ".venv",
-    ".idea",
-    # Generic cruft
-    "**/__pycache__",
-    "*.so",
+# Whitelist-based source distribution
+sdist.exclude = ["**/*"]
+sdist.include = [
+    "python/pyfastlanes/**",
+    "python/bindings/**",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    "CMakeLists.txt",
+    "cmake/**",
+    "src/**",
 ]
 
 [tool.scikit-build.wheel]

@@ -1,35 +1,29 @@
-#######################################################################
-# 1. Public‑header interface target
-#######################################################################
-# Anything that needs to include <fastlanes.h> or other public headers
-# simply links to this target (no actual link flags are added, only
-# the include path)
+###########################################################################
+# Usage in sub-directories (example)
+###########################################################################
+#   target_link_libraries(example
+#       PUBLIC
+#           FastLanes::headers   # include path
+#           FastLanes::core      # links against FastLanes lib
+#   )
+###########################################################################
+
+###########################################################################
+# 1. Public-header interface target
+###########################################################################
 add_library(fls_headers INTERFACE)
-
-# Build tree                     → FastLanes/include
-# When installed with CMake      → <install‑prefix>/include
-# The install path is picked up automatically by `install(EXPORT …)`.
-# --------------------------------------------------------------------
-# IMPORTANT: we declare this *before* we descend into the sub‑directories
-# so that every target created later can already link against it.
-# --------------------------------------------------------------------
-
-# NOTE: `${CMAKE_CURRENT_SOURCE_DIR}` here is …/src
-# so the public headers are expected in …/include next to the src folder.
-# Adjust the path if your layout is different.
 
 target_include_directories(fls_headers
         INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
-        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 add_library(FastLanes::headers ALIAS fls_headers)
 
-#######################################################################
-# 2. Sub‑directories that build the individual components
-#######################################################################
-
+###########################################################################
+# 2. Sub-directories that build individual components
+###########################################################################
 add_subdirectory(alp)
 add_subdirectory(c_api)
 add_subdirectory(cfg)
@@ -56,57 +50,80 @@ add_subdirectory(table)
 add_subdirectory(utl)
 add_subdirectory(wizard)
 
-#######################################################################
+###########################################################################
 # 3. Core FastLanes library
-#######################################################################
-
-add_library(FastLanes STATIC
-        connection.cpp
-        ${FASTLANES_OBJECT_FILES}
-)
+###########################################################################
+if (FLS_BUILD_SHARED_LIBS)
+    add_library(FastLanes SHARED
+            connection.cpp
+            ${FASTLANES_OBJECT_FILES}
+    )
+    target_compile_definitions(FastLanes
+            PRIVATE
+            FLS_BUILD_DLL
+    )
+else ()
+    add_library(FastLanes STATIC
+            connection.cpp
+            ${FASTLANES_OBJECT_FILES}
+    )
+    target_compile_definitions(FastLanes
+            PUBLIC
+            FLS_STATIC
+    )
+endif ()
 
 target_compile_features(FastLanes PUBLIC cxx_std_20)
 
-
-# Public usage requirements
-# ‑ Anyone linking to FastLanes gets include path *and* dependent libs
-# ‑ We link the header interface so *this* target can see its own headers
-# ‑ Add your other internal/external dependencies here (primitives, ALP …)
-
 target_link_libraries(FastLanes
         PUBLIC
-        FastLanes::headers   # <fastlanes.h> etc.
+        FastLanes::headers
 )
 
 add_library(FastLanes::core ALIAS FastLanes)
 
-# Optional Include‑What‑You‑Use support --------------------------------------------------------------
+# Optional IWYU integration
 if (FLS_ENABLE_IWYU)
     set_property(TARGET FastLanes PROPERTY CXX_INCLUDE_WHAT_YOU_USE ${iwyu_path})
 endif ()
 
-#######################################################################
-# 4. Installation
-#######################################################################
+if (FLS_ENABLE_INSTALL)
+    ###########################################################################
+    # 4. Installation
+    ###########################################################################
 
-install(
-        TARGETS FastLanes fls_headers
-        EXPORT FLSTargets           # add the two libs to the export set
-        LIBRARY DESTINATION lib      # for shared libs (none in this snippet)
-        ARCHIVE DESTINATION lib      # static libs (.a)
-        RUNTIME DESTINATION bin      # executables, if any
-)
+    install(
+            TARGETS FastLanes fls_headers
+            EXPORT FLSTargets
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}   # .a / import-libs
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}   # .so / .dylib
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}   # Windows .dll / executables
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 
-#######################################################################
-# 5. Usage in sub‑directories (example)
-#######################################################################
-# ---- src/c_api/CMakeLists.txt ----
-#   add_library(fls_c_api STATIC c_api_connector.cpp)
-#   target_link_libraries(fls_c_api
-#       PUBLIC
-#           FastLanes::headers   # gets the include path
-#           FastLanes::core      # links against the main library if needed
-#   )
-# --------------------------------------------------------------------
-# Repeat the same pattern for other component libraries/executables.
-#######################################################################
+    # Export set for find_package(FLS)
+    install(
+            EXPORT FLSTargets
+            FILE FLSTargets.cmake
+            NAMESPACE FLS::
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/FLS
+    )
+
+    # Export file to the build tree for downstream projects
+    export(
+            EXPORT FLSTargets
+            FILE "${CMAKE_BINARY_DIR}/FLSTargets.cmake"
+            NAMESPACE FLS::
+    )
+
+    ###########################################################################
+    # 5. Header-only tree
+    ###########################################################################
+    install(
+            DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING
+            PATTERN "*.h"
+            PATTERN "*.hpp"
+    )
+endif ()  # FLS_ENABLE_INSTALL
