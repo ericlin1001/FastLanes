@@ -97,7 +97,6 @@ DataType TypeLookUp(const std::string& str) {
 	    {"decimal(9, 6)", DataType::DECIMAL},
 	    {"double", DataType::DOUBLE},
 	    {"time", DataType::FLS_STR},
-	    {"timestamp", DataType::FLS_STR},
 	    {"varchar(10)", DataType::FLS_STR},
 	    {"varchar(100)", DataType::FLS_STR},
 	    {"varchar(102)", DataType::FLS_STR},
@@ -230,7 +229,6 @@ DataType TypeLookUp(const std::string& str) {
 	    {"varchar(99)", DataType::FLS_STR},
 
 	    // NextiaJD
-	    {"TIMESTAMP", DataType::FLS_STR},
 	    {"BOOLEAN", DataType::FLS_STR},
 
 	    // TPCH
@@ -239,6 +237,9 @@ DataType TypeLookUp(const std::string& str) {
 	    // DATE
 	    {"DATE", DataType::DATE},
 	    {"date", DataType::DATE},
+	    // TIMESTAMP
+	    {"TIMESTAMP", DataType::TIMESTAMP},
+	    {"timestamp", DataType::TIMESTAMP},
 
 	};
 
