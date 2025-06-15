@@ -109,6 +109,7 @@ option(FLS_BUILD_BENCHMARKING "Enable Benchmark Build" OFF)
 option(FLS_BUILD_EXAMPLES "Build Examples" OFF)
 option(FLS_BUILD_GPU "Build GPU" OFF)
 option(FLS_BUILD_GTEST "Build GTEST" OFF)
+option(FLS_BUILD_PYTHON "Build FastLanes Python bindings" OFF)
 option(FLS_BUILD_SHARED_LIBS "Build FastLanes library as shared" OFF)
 option(FLS_ENABLE_INSTALL "Generate install targets for FastLanes" ON)
 option(FLS_ENABLE_CLANG_TIDY "Enable clang_tidy on all targets" OFF)
@@ -220,13 +221,6 @@ if (FLS_ENABLE_CLANG_TIDY)
         else ()
             message(FATAL_ERROR "-- FLS: Do not override the clang-tidy configuration. Use the project-level .clang-tidy file instead. Current setting: ${CMAKE_CXX_CLANG_TIDY}")
         endif ()
-
-        execute_process(
-                COMMAND ${CLANG_TIDY_EXE} --version
-                OUTPUT_VARIABLE CLANG_TIDY_VERSION
-                OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        message("-- FLS: clang-tidy version: ${CLANG_TIDY_VERSION}")
 
         execute_process(
                 COMMAND ${CLANG_TIDY_EXE} --version

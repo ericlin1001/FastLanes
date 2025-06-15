@@ -5,6 +5,7 @@ EXAMPLES_MK_INCLUDED := yes
 # Common helpers & C++ rules
 # ─────────────────────────────────────────────────────────────
 include $(abspath $(dir $(lastword $(MAKEFILE_LIST))))/preamble.mk
+include $(abspath $(dir $(lastword $(MAKEFILE_LIST))))/cpp.mk
 
 # ─────────────────────────────────────────────────────────────
 # Compute paths relative to this file’s directory
@@ -17,6 +18,34 @@ EXAMPLES_DIR := $(PROJECT_DIR)/examples
 # Install prefix (inherited from root Makefile)
 # ─────────────────────────────────────────────────────────────
 PREFIX       := $(PROJECT_DIR)/build/install
+
+# -----------------------------------------------------------------
+# Compiler configuration
+# -----------------------------------------------------------------
+# These targets rely on standard C/C++ compilers being available.
+# Override CC/CXX if clang or another toolchain should be used.
+
+# Default compilers (override via environment). Works on Unix and Windows
+CC  ?= cc
+CXX ?= c++
+# Windows executables use .exe extension
+EXE_EXT :=
+ifeq ($(OS),Windows_NT)
+  EXE_EXT := .exe
+endif
+
+# Runtime library path for running examples.
+# These settings ensure the FastLanes shared library is
+# discoverable across Linux, macOS and Windows when executing
+# the example binaries.
+RUN_ENV :=
+ifeq ($(OS),Windows_NT)
+  RUN_ENV := PATH=$(PREFIX)/bin;$(PATH)
+else ifeq ($(shell uname -s),Darwin)
+  RUN_ENV := DYLD_LIBRARY_PATH=$(PREFIX)/lib:$(DYLD_LIBRARY_PATH)
+else
+  RUN_ENV := LD_LIBRARY_PATH=$(PREFIX)/lib:$(LD_LIBRARY_PATH)
+endif
 
 # ─────────────────────────────────────────────────────────────
 # Phony targets
@@ -40,6 +69,28 @@ run-rust-example:
 	@echo "Running Rust example…"
 	cd $(EXAMPLES_DIR)/rust_example && \
 	cargo run --bin rust_example
+
+# ─────────────────────────────────────────────────────────────
+# Build & run the standalone C++ example
+# Requires a C++20 capable compiler (clang++ or g++).
+# ─────────────────────────────────────────────────────────────
+run-cpp-example: install-cpp
+	@echo "Building C++ example…"
+	$(CXX) -std=c++20 $(EXAMPLES_DIR)/cpp_example.cpp -I$(PREFIX)/include \
+       -L$(PREFIX)/lib -lFastLanes -o $(EXAMPLES_DIR)/cpp_example$(EXE_EXT)
+	@echo "Running C++ example…"
+	$(RUN_ENV) $(EXAMPLES_DIR)/cpp_example$(EXE_EXT)
+
+# ─────────────────────────────────────────────────────────────
+# Build & run the C API example
+# Requires a C compiler such as clang or gcc.
+# ─────────────────────────────────────────────────────────────
+run-c-api-example: install-cpp
+	@echo "Building C API example…"
+	$(CC) -std=c11 $(EXAMPLES_DIR)/c_api.c -I$(PREFIX)/include \
+       -L$(PREFIX)/lib -lFastLanes -o $(EXAMPLES_DIR)/c_api$(EXE_EXT)
+	@echo "Running C API example…"
+	$(RUN_ENV) $(EXAMPLES_DIR)/c_api$(EXE_EXT)
 
 # ─────────────────────────────────────────────────────────────
 # Run the Python example (assumes the C++ lib is in PYTHONPATH)
