@@ -36,6 +36,9 @@ public:
 	static constexpr std::string_view SINGLE_COLUMN_BYTE_ARRAY {FLS_CMAKE_SOURCE_DIR
 	                                                            "/data/generated/single_columns/byte_array"};
 	static constexpr std::string_view SINGLE_COLUMN_JPEG {FLS_CMAKE_SOURCE_DIR "/data/generated/single_columns/jpeg"};
+	static constexpr std::string_view SINGLE_COLUMN_BOOLEAN {FLS_CMAKE_SOURCE_DIR
+	                                                         "/data/generated/single_columns/boolean"};
+
 	//
 	static constexpr std::string_view EQUALITY_I64PT {FLS_CMAKE_SOURCE_DIR "/data/generated/equality/fls_i64"};
 	static constexpr std::string_view EQUALITY_DBLPT {FLS_CMAKE_SOURCE_DIR "/data/generated/equality/fls_dbl"};
@@ -51,6 +54,7 @@ public:
 	static constexpr std::string_view ONE_VEC_STRPT {FLS_CMAKE_SOURCE_DIR "/data/generated/one_vector/fls_str"};
 	static constexpr std::string_view ONE_VEC_DBLPT {FLS_CMAKE_SOURCE_DIR "/data/generated/one_vector/fls_dbl"};
 	static constexpr std::string_view ONE_VEC_DECIMAL {FLS_CMAKE_SOURCE_DIR "/data/generated/one_vector/decimal"};
+	static constexpr std::string_view ONE_VEC_BOOLEAN {FLS_CMAKE_SOURCE_DIR "/data/generated/one_vector/boolean"};
 
 	// TWO VEC
 	static constexpr std::string_view TWO_VEC_STRPT {FLS_CMAKE_SOURCE_DIR "/data/generated/two_vector/fls_str"};

@@ -1,9 +1,12 @@
 add_library(fls_types
         OBJECT
+        bool.cpp
         #[[]]
         date.cpp
         integer.cpp
-        timestamp.cpp)
+        timestamp.cpp
+        validitymask.cpp
+)
 
 set(FASTLANES_OBJECT_FILES
         ${FASTLANES_OBJECT_FILES} $<TARGET_OBJECTS:fls_types>
