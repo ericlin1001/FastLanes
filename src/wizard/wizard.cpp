@@ -586,18 +586,26 @@ vector<OperatorToken>& get_pool(const DataType data_typ) {
 		};
 
 		static vector<OperatorToken> I08_POOL = {
+		    //
+		    OperatorToken::EXP_UNCOMPRESSED_I08,
+		    OperatorToken::EXP_FFOR_I08,
+		    OperatorToken::EXP_FREQUENCY_I08,
+		    OperatorToken::EXP_CROSS_RLE_I08,
 		    OperatorToken::EXP_RLE_I08_SLPATCH_U16,
 		    OperatorToken::EXP_FFOR_SLPATCH_I08,
 		    OperatorToken::EXP_DELTA_I08,
 		    OperatorToken::EXP_RLE_I08_U16,
-		    OperatorToken::EXP_UNCOMPRESSED_I08,
-		    OperatorToken::EXP_FFOR_I08,
-		    OperatorToken::EXP_FREQUENCY_I08,
-		    OperatorToken::EXP_CROSS_RLE_I08, //
 		};
 
 		static vector<OperatorToken> U08_POOL = {
 		    OperatorToken::EXP_UNCOMPRESSED_U08, //
+		    OperatorToken::EXP_FFOR_U08,
+		    OperatorToken::EXP_FREQUENCY_U08,
+		    OperatorToken::EXP_CROSS_RLE_U08,
+		    OperatorToken::EXP_RLE_U08_SLPATCH_U16,
+		    OperatorToken::EXP_FFOR_SLPATCH_U08,
+		    OperatorToken::EXP_DELTA_U08,
+		    OperatorToken::EXP_RLE_U08_U16,
 		};
 
 		static vector<OperatorToken> DBL_POOL = {
@@ -1192,6 +1200,17 @@ void PushExternalDictionaryEncoding(ColumnDescriptorT& second_column_descriptor,
 		switch (common_data_type_for_index) {
 		case DataType::UINT8: {
 			second_column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_DICT_I08_U08);
+			break;
+		}
+		default:
+			FLS_UNREACHABLE();
+		}
+		break;
+	}
+	case DataType::UINT8: {
+		switch (common_data_type_for_index) {
+		case DataType::UINT8: {
+			second_column_descriptor.encoding_rpn->operator_tokens.emplace_back(OperatorToken::EXP_DICT_U08_U08);
 			break;
 		}
 		default:
