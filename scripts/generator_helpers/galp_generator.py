@@ -1,3 +1,8 @@
+# ────────────────────────────────────────────────────────
+# |                      FastLanes                       |
+# ────────────────────────────────────────────────────────
+# scripts/generator_helpers/galp_generator.py
+# ────────────────────────────────────────────────────────
 """
 Module: scripts/generate_helpers/galp_generator.py
 Description: For three fields—one random two‑decimal GALP, one constant 1.00,
@@ -47,7 +52,7 @@ def fls_galp():
       data/generated/galp/<precision>/<field>/one_vector/generated.csv     (VEC_SIZE rows)
       data/generated/galp/<precision>/<field>/one_vector/schema.json
     """
-    base_dir = Path.cwd() / "../data" / "generated" / "galp"
+    base_dir = Path.cwd() / "data" / "generated" / "galp"
 
     # the three fields we want to generate
     tasks = [
