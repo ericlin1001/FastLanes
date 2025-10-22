@@ -379,7 +379,7 @@ bool is_1_to_1(const OperatorToken token) {
 	    OperatorToken::EXP_FSST12_DICT_STR_U08,
 	};
 
-	return one_to_one_set.contains(token);
+	return one_to_one_set.find(token) != one_to_one_set.end();
 }
 
 } // namespace fastlanes
